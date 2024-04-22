@@ -1,7 +1,24 @@
-# bitcoinjs-message
-[![NPM Package](https://img.shields.io/npm/v/bitcoinjs-message.svg?style=flat-square)](https://www.npmjs.org/package/bitcoinjs-message)
-[![Build Status](https://img.shields.io/travis/bitcoinjs/bitcoinjs-message.svg?branch=master&style=flat-square)](https://travis-ci.org/bitcoinjs/bitcoinjs-message)
-[![Dependency status](https://img.shields.io/david/bitcoinjs/bitcoinjs-message.svg?style=flat-square)](https://david-dm.org/bitcoinjs/bitcoinjs-message#info=dependencies)
+# @samouraiwallet/bitcoinjs-message
+
+[![NPM Package](https://img.shields.io/npm/v/@samouraiwallet/mitcoinjs-message.svg?style=flat-square)](https://www.npmjs.com/package/@samouraiwallet/bitcoinjs-message)
+
+This is a fork of the [original bitcoinjs-message library](https://github.com/bitcoinjs/bitcoinjs-message) with minor changes:
+- codebase updated to use UInt8Array instead of Buffer - thus making this library browser-compatible without any shims
+- package type changed to ESModule instead of CommonJS
+- source rewritten to Typescript
+- accepting ecc library as an argument for factory function
+- updated tests to reflect these changes
+
+### Usage
+```ts
+import * as ecc from 'tiny-secp256k1';
+import { bitcoinMessageFactory, magicHash } from '@samouraiwallet/bitcoinjs-message'
+
+// You must wrap a tiny-secp256k1 compatible implementation
+const { sign, signAsync, verify } = bitcoinMessageFactory(ecc);
+```
+
+## Original Readme
 
 [![js-standard-style](https://cdn.rawgit.com/feross/standard/master/badge.svg)](https://github.com/feross/standard)
 
