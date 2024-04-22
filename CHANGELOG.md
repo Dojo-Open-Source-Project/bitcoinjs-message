@@ -1,3 +1,9 @@
+# 3.0.0
+- Rewritten source to Typescript
+- Accept ecc library as an argument
+- Use @noble/hashes and @scure/base
+- Use Uint8Array instead of Buffer
+
 # 2.2.0
 __added__
 - Signer and SignerAsync interfaces
