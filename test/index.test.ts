@@ -6,11 +6,12 @@ import * as secp256k1 from 'tiny-secp256k1'
 import * as bitcoin from 'bitcoinjs-lib'
 import { ECPairFactory } from 'ecpair'
 
-import * as message from '../src/index.js'
+import { bitcoinMessageFactory, magicHash } from '../src/index.js'
 
 import fixtures from './fixtures.json'
 
 const ECPair = ECPairFactory(secp256k1)
+const message = bitcoinMessageFactory(secp256k1)
 
 type Network = keyof typeof fixtures['networks']
 
@@ -31,7 +32,7 @@ function createTypedArray (number: number, length: number): Uint8Array {
 fixtures.valid.magicHash.forEach(f => {
   test('produces the magicHash for "' + f.message + '" (' + f.network + ')',
     () => {
-      const actual = message.magicHash(f.message, getMessagePrefix(f.network))
+      const actual = magicHash(f.message, getMessagePrefix(f.network))
       assert.strictEqual(bytesToHex(actual), f.magicHash)
     }
   )

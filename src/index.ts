@@ -4,9 +4,9 @@ import { ripemd160 } from '@noble/hashes/ripemd160'
 import { concatBytes, isBytes, utf8ToBytes, hexToBytes } from '@noble/hashes/utils'
 import { bech32, createBase58check, base64 } from '@scure/base'
 import * as varuint from '@samouraiwallet/varuint-bitcoin'
-import * as secp256k1 from 'tiny-secp256k1'
 
 import { areUint8ArraysEqual } from './utils.js'
+import { testEcc, TinySecp256k1Interface } from './testecc.js'
 
 const bs58check = createBase58check(sha256)
 
@@ -37,7 +37,7 @@ function encodeSignature (signature: Uint8Array, recovery: number, compressed?: 
 interface DecodeSignatureReturnType {
   compressed: boolean
   segwitType: typeof SEGWIT_TYPES[keyof typeof SEGWIT_TYPES] | null
-  recovery: secp256k1.RecoveryIdType
+  recovery: number
   signature: Uint8Array
 }
 
@@ -56,7 +56,7 @@ function decodeSignature (buffer: Uint8Array): DecodeSignatureReturnType {
       : !(flagByte & 4)
           ? SEGWIT_TYPES.P2SH_P2WPKH
           : SEGWIT_TYPES.P2WPKH,
-    recovery: (flagByte & 3) as secp256k1.RecoveryIdType,
+    recovery: (flagByte & 3),
     signature: buffer.slice(1)
   }
 }
@@ -76,12 +76,12 @@ export interface Signer extends SignerBase {
   // returns object
   //   attribute signature: 64 byte Buffer, first 32 R value, last 32 S value of ECDSA signature
   //   attribute recovery: Number (integer) from 0 to 3 (inclusive), also known as recid, used for pubkey recovery
-  sign: (hash: Uint8Array, extraEntropy?: Uint8Array) => { signature: Uint8Array, recoveryId: secp256k1.RecoveryIdType }
+  sign: (hash: Uint8Array, extraEntropy?: Uint8Array) => { signature: Uint8Array, recoveryId: number }
 }
 
 export interface SignerAsync extends SignerBase {
   // Same as Signer, but return is wrapped in a Promise
-  sign: (hash: Uint8Array, extraEntropy?: Uint8Array) => Promise<{ signature: Uint8Array, recoveryId: secp256k1.RecoveryIdType }>
+  sign: (hash: Uint8Array, extraEntropy?: Uint8Array) => Promise<{ signature: Uint8Array, recoveryId: number }>
 }
 
 export function magicHash (message: string | Uint8Array, messagePrefix?: string | null | Uint8Array): Uint8Array {
@@ -138,45 +138,6 @@ function isSigner (obj: unknown): obj is SignerBase {
   return obj != null && typeof obj === 'object' && 'sign' in obj && typeof obj.sign === 'function'
 }
 
-export function sign (message: string | Uint8Array, privateKey: Uint8Array | Signer, compressed?: boolean, sigOptions?: SignatureOptions): Uint8Array
-export function sign (message: string | Uint8Array, privateKey: Uint8Array | Signer, compressed?: boolean, messagePrefix?: string | Uint8Array, sigOptions?: SignatureOptions): Uint8Array
-export function sign (message: string | Uint8Array, privateKey: Uint8Array | Signer, compressed?: boolean, messagePrefix?: string | Uint8Array | SignatureOptions, sigOptions?: SignatureOptions): Uint8Array {
-  const { messagePrefixArg, segwitType, extraEntropy } = prepareSign(messagePrefix, sigOptions)
-  const hash = magicHash(message, messagePrefixArg)
-  const sigObj = isSigner(privateKey)
-    ? privateKey.sign(hash, extraEntropy)
-    : secp256k1.signRecoverable(hash, privateKey, extraEntropy)
-  return encodeSignature(
-    sigObj.signature,
-    sigObj.recoveryId,
-    compressed,
-    segwitType
-  )
-}
-
-export function signAsync (message: string | Uint8Array, privateKey: Uint8Array | SignerAsync | Signer, compressed?: boolean, sigOptions?: SignatureOptions): Promise<Uint8Array>
-export function signAsync (message: string | Uint8Array, privateKey: Uint8Array | SignerAsync | Signer, compressed?: boolean, messagePrefix?: string, sigOptions?: SignatureOptions): Promise<Uint8Array>
-export async function signAsync (message: string | Uint8Array, privateKey: Uint8Array | SignerAsync | Signer, compressed?: boolean, messagePrefix?: string | SignatureOptions, sigOptions?: SignatureOptions): Promise<Uint8Array> {
-  let messagePrefixArg: PrepareSignReturnType['messagePrefixArg']
-  let segwitType: PrepareSignReturnType['segwitType']
-  let extraEntropy: PrepareSignReturnType['extraEntropy']
-
-  return await Promise.resolve().then(async () => {
-    ({ messagePrefixArg, segwitType, extraEntropy } = prepareSign(messagePrefix, sigOptions))
-    const hash = magicHash(message, messagePrefixArg)
-    return isSigner(privateKey)
-      ? await privateKey.sign(hash, extraEntropy)
-      : secp256k1.signRecoverable(hash, privateKey, extraEntropy)
-  }).then((sigObj) => {
-    return encodeSignature(
-      sigObj.signature,
-      sigObj.recoveryId,
-      compressed,
-      segwitType
-    )
-  })
-}
-
 function segwitRedeemHash (publicKeyHash: Uint8Array): Uint8Array {
   const redeemScript = concatBytes(
     hexToBytes('0014'),
@@ -190,59 +151,106 @@ function decodeBech32 (address: string): Uint8Array {
   return bech32.fromWords(result.words.slice(1))
 }
 
-export function verify (message: string, address: string, signature: Uint8Array | string, messagePrefix?: string | null, checkSegwitAlways?: boolean): boolean {
-  if (!isBytes(signature)) signature = base64.decode(signature)
+export const bitcoinMessageFactory = (ecc: TinySecp256k1Interface) => {
+  testEcc(ecc)
 
-  const parsed = decodeSignature(signature)
-
-  if (checkSegwitAlways && !parsed.compressed) {
-    throw new Error('checkSegwitAlways can only be used with a compressed pubkey signature flagbyte')
+  function sign (message: string | Uint8Array, privateKey: Uint8Array | Signer, compressed?: boolean, sigOptions?: SignatureOptions): Uint8Array
+  function sign (message: string | Uint8Array, privateKey: Uint8Array | Signer, compressed?: boolean, messagePrefix?: string | Uint8Array, sigOptions?: SignatureOptions): Uint8Array
+  function sign (message: string | Uint8Array, privateKey: Uint8Array | Signer, compressed?: boolean, messagePrefix?: string | Uint8Array | SignatureOptions, sigOptions?: SignatureOptions): Uint8Array {
+    const { messagePrefixArg, segwitType, extraEntropy } = prepareSign(messagePrefix, sigOptions)
+    const hash = magicHash(message, messagePrefixArg)
+    const sigObj = isSigner(privateKey)
+      ? privateKey.sign(hash, extraEntropy)
+      : ecc.signRecoverable(hash, privateKey, extraEntropy)
+    return encodeSignature(
+      sigObj.signature,
+      sigObj.recoveryId,
+      compressed,
+      segwitType
+    )
   }
 
-  const hash = magicHash(message, messagePrefix)
-  const publicKey = secp256k1.recover(
-    hash,
-    parsed.signature,
-    parsed.recovery,
-    parsed.compressed
-  )
+  function signAsync (message: string | Uint8Array, privateKey: Uint8Array | SignerAsync | Signer, compressed?: boolean, sigOptions?: SignatureOptions): Promise<Uint8Array>
+  function signAsync (message: string | Uint8Array, privateKey: Uint8Array | SignerAsync | Signer, compressed?: boolean, messagePrefix?: string | Uint8Array, sigOptions?: SignatureOptions): Promise<Uint8Array>
+  async function signAsync (message: string | Uint8Array, privateKey: Uint8Array | SignerAsync | Signer, compressed?: boolean, messagePrefix?: string | Uint8Array | SignatureOptions, sigOptions?: SignatureOptions): Promise<Uint8Array> {
+    let messagePrefixArg: PrepareSignReturnType['messagePrefixArg']
+    let segwitType: PrepareSignReturnType['segwitType']
+    let extraEntropy: PrepareSignReturnType['extraEntropy']
 
-  if (publicKey == null) throw new Error('Could not recover public key')
+    return await Promise.resolve().then(async () => {
+      ({ messagePrefixArg, segwitType, extraEntropy } = prepareSign(messagePrefix, sigOptions))
+      const hash = magicHash(message, messagePrefixArg)
+      return isSigner(privateKey)
+        ? await privateKey.sign(hash, extraEntropy)
+        : ecc.signRecoverable(hash, privateKey, extraEntropy)
+    }).then((sigObj) => {
+      return encodeSignature(
+        sigObj.signature,
+        sigObj.recoveryId,
+        compressed,
+        segwitType
+      )
+    })
+  }
 
-  const publicKeyHash = hash160(publicKey)
-  let actual, expected
+  function verify (message: string, address: string, signature: Uint8Array | string, messagePrefix?: string | null, checkSegwitAlways?: boolean): boolean {
+    if (!isBytes(signature)) signature = base64.decode(signature)
 
-  if (parsed.segwitType) {
-    if (parsed.segwitType === SEGWIT_TYPES.P2SH_P2WPKH) {
-      actual = segwitRedeemHash(publicKeyHash)
-      expected = bs58check.decode(address).slice(1)
-    } else {
+    const parsed = decodeSignature(signature)
+
+    if (checkSegwitAlways && !parsed.compressed) {
+      throw new Error('checkSegwitAlways can only be used with a compressed pubkey signature flagbyte')
+    }
+
+    const hash = magicHash(message, messagePrefix)
+    const publicKey = ecc.recover(
+      hash,
+      parsed.signature,
+      parsed.recovery as 0 | 1 | 2 | 3,
+      parsed.compressed
+    )
+
+    if (publicKey == null) throw new Error('Could not recover public key')
+
+    const publicKeyHash = hash160(publicKey)
+    let actual, expected
+
+    if (parsed.segwitType) {
+      if (parsed.segwitType === SEGWIT_TYPES.P2SH_P2WPKH) {
+        actual = segwitRedeemHash(publicKeyHash)
+        expected = bs58check.decode(address).slice(1)
+      } else {
       // parsed.segwitType === SEGWIT_TYPES.P2WPKH
       // must be true since we only return null, P2SH_P2WPKH, or P2WPKH
       // from the decodeSignature function.
-      actual = publicKeyHash
-      expected = decodeBech32(address)
-    }
-  } else {
-    if (checkSegwitAlways) {
-      try {
+        actual = publicKeyHash
         expected = decodeBech32(address)
-        // if address is bech32 it is not p2sh
-        return areUint8ArraysEqual(publicKeyHash, expected)
-      } catch (e) {
-        const redeemHash = segwitRedeemHash(publicKeyHash)
-        expected = bs58check.decode(address).slice(1)
-        // base58 can be p2pkh or p2sh-p2wpkh
-        return (
-          areUint8ArraysEqual(publicKeyHash, expected) ||
-                    areUint8ArraysEqual(redeemHash, expected)
-        )
       }
     } else {
-      actual = publicKeyHash
-      expected = bs58check.decode(address).slice(1)
+      if (checkSegwitAlways) {
+        try {
+          expected = decodeBech32(address)
+          // if address is bech32 it is not p2sh
+          return areUint8ArraysEqual(publicKeyHash, expected)
+        } catch (e) {
+          const redeemHash = segwitRedeemHash(publicKeyHash)
+          expected = bs58check.decode(address).slice(1)
+          // base58 can be p2pkh or p2sh-p2wpkh
+          return (
+            areUint8ArraysEqual(publicKeyHash, expected) ||
+                    areUint8ArraysEqual(redeemHash, expected)
+          )
+        }
+      } else {
+        actual = publicKeyHash
+        expected = bs58check.decode(address).slice(1)
+      }
     }
+
+    return areUint8ArraysEqual(actual, expected)
   }
 
-  return areUint8ArraysEqual(actual, expected)
+  return {
+    sign, signAsync, verify
+  }
 }
