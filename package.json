@@ -6,9 +6,9 @@
     "bitcoinjs-message",
     "bitcoin"
   ],
-  "homepage": "https://code.samourai.io/dojo/bitcoinjs-message",
+  "homepage": "https://github.com/Dojo-Open-Source-Project/bitcoinjs-message",
   "bugs": {
-    "url": "https://code.samourai.io/dojo/bitcoinjs-message/-/issues"
+    "url": "https://github.com/Dojo-Open-Source-Project/bitcoinjs-message/issues"
   },
   "license": "MIT",
   "type": "module",
@@ -21,7 +21,7 @@
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "https://code.samourai.io/dojo/bitcoinjs-message.git"
+    "url": "https://github.com/Dojo-Open-Source-Project/bitcoinjs-message.git"
   },
   "scripts": {
     "test": "vitest run",
