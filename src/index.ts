@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/strict-boolean-expressions, @typescript-eslint/explicit-function-return-type */
-import { sha256 } from '@noble/hashes/sha256'
-import { ripemd160 } from '@noble/hashes/ripemd160'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { ripemd160 } from '@noble/hashes/legacy.js'
 import { concatBytes, isBytes, utf8ToBytes, hexToBytes } from '@noble/hashes/utils'
 import { bech32, createBase58check, base64 } from '@scure/base'
-import * as varuint from '@samouraiwallet/varuint-bitcoin'
+import * as varuint from 'varuint-bitcoin'
 
 import { areUint8ArraysEqual } from './utils.js'
 import { testEcc, TinySecp256k1Interface } from './testecc.js'
@@ -37,7 +37,7 @@ function encodeSignature (signature: Uint8Array, recovery: number, compressed?: 
 interface DecodeSignatureReturnType {
   compressed: boolean
   segwitType: typeof SEGWIT_TYPES[keyof typeof SEGWIT_TYPES] | null
-  recovery: number
+  recovery: 0 | 1 | 2 | 3
   signature: Uint8Array
 }
 
@@ -56,7 +56,7 @@ function decodeSignature (buffer: Uint8Array): DecodeSignatureReturnType {
       : !(flagByte & 4)
           ? SEGWIT_TYPES.P2SH_P2WPKH
           : SEGWIT_TYPES.P2WPKH,
-    recovery: (flagByte & 3),
+    recovery: (flagByte & 3) as 0 | 1 | 2 | 3,
     signature: buffer.slice(1)
   }
 }
@@ -147,7 +147,7 @@ function segwitRedeemHash (publicKeyHash: Uint8Array): Uint8Array {
 }
 
 function decodeBech32 (address: string): Uint8Array {
-  const result = bech32.decode(address)
+  const result = bech32.decode(address as 'bc1string')
   return bech32.fromWords(result.words.slice(1))
 }
 
@@ -206,7 +206,7 @@ export const bitcoinMessageFactory = (ecc: TinySecp256k1Interface) => {
     const publicKey = ecc.recover(
       hash,
       parsed.signature,
-      parsed.recovery as 0 | 1 | 2 | 3,
+      parsed.recovery,
       parsed.compressed
     )
 

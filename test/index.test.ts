@@ -8,7 +8,7 @@ import { ECPairFactory } from 'ecpair'
 
 import { bitcoinMessageFactory, magicHash } from '../src/index.js'
 
-import fixtures from './fixtures.json'
+import fixtures from './fixtures.json' with { type: 'json' }
 
 const ECPair = ECPairFactory(secp256k1)
 const message = bitcoinMessageFactory(secp256k1)
@@ -208,7 +208,7 @@ fixtures.randomSig.forEach(f => {
   test(f.description, () => {
     const keyPair = ECPair.fromWIF(f.wif)
     const privateKey = keyPair.privateKey!
-    const address = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey })
+    const address = bitcoin.payments.p2pkh({ pubkey: Buffer.from(keyPair.publicKey) })
     f.signatures.forEach(s => {
       const signature = message.sign(
         f.message,
@@ -226,14 +226,14 @@ test('Check that compressed signatures can be verified as segwit', () => {
   const privateKey = keyPair.privateKey!
   const publicKey = keyPair.publicKey
   // get addresses (p2pkh, p2sh-p2wpkh, p2wpkh)
-  const p2pkhAddress = bitcoin.payments.p2pkh({ pubkey: publicKey })
+  const p2pkhAddress = bitcoin.payments.p2pkh({ pubkey: Buffer.from(publicKey) })
   const p2shp2wpkhAddress = bitcoin.payments.p2sh({
     redeem: bitcoin.payments.p2wpkh({
-      pubkey: publicKey
+      pubkey: Buffer.from(publicKey)
     })
   })
   const p2wpkhAddress = bitcoin.payments.p2wpkh({
-    pubkey: publicKey
+    pubkey: Buffer.from(publicKey)
   })
 
   const msg = 'Sign me'
