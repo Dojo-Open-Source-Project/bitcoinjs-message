@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/strict-boolean-expressions, @typescript-eslint/explicit-function-return-type */
-import { sha256 } from '@noble/hashes/sha2.js'
-import { ripemd160 } from '@noble/hashes/legacy.js'
+import { sha256 } from '@noble/hashes/sha2'
+import { ripemd160 } from '@noble/hashes/legacy'
 import { concatBytes, isBytes, utf8ToBytes, hexToBytes } from '@noble/hashes/utils'
 import { bech32, createBase58check, base64 } from '@scure/base'
 import * as varuint from 'varuint-bitcoin'
