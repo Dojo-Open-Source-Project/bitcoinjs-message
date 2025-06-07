@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.1.1
+- Fixed imports
+
 ## 3.1.0
 - Updated dependencies
 - Switched to varuint-bitcoin
