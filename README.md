@@ -1,3 +1,9 @@
+# Archived
+
+This project has been moved to [dojo-tools repository](https://github.com/Dojo-Open-Source-Project/dojo-tools/tree/master/packages/bitcoinjs-message).
+
+---
+
 # @samouraiwallet/bitcoinjs-message
 
 [![NPM Package](https://img.shields.io/npm/v/@samouraiwallet/mitcoinjs-message.svg?style=flat-square)](https://www.npmjs.com/package/@samouraiwallet/bitcoinjs-message)
